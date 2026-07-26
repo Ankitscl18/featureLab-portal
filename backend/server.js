@@ -53,6 +53,17 @@ async function sendOtpEmail(email, otp) {
 // Temporary in-memory store for OTPs
 const otpStore = new Map();
 
+// ===================== ADMIN AUTH =====================
+let currentAdminToken = null; // single-admin, in-memory session (resets on server restart)
+
+function requireAdmin(req, res, next) {
+  const token = req.headers['admin-token'];
+  if (!token || token !== currentAdminToken) {
+    return res.status(401).json({ error: 'Not authorized. Please log in again.' });
+  }
+  next();
+}
+
 // File rules per document type
 const FILE_RULES = {
   marksheet_10th: { maxSize: 800 * 1024, types: /pdf/ },
@@ -673,6 +684,103 @@ app.get('/payment-status/:registration_number', async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Server error, please try again later.' });
+  }
+});
+
+// ===================== ADMIN ROUTES =====================
+
+app.post('/admin/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (username !== process.env.ADMIN_USERNAME || password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid admin credentials' });
+  }
+
+  currentAdminToken = crypto.randomBytes(24).toString('hex');
+  res.json({ token: currentAdminToken });
+});
+
+app.post('/admin/logout', requireAdmin, (req, res) => {
+  currentAdminToken = null;
+  res.json({ message: 'Logged out' });
+});
+
+// List all applications with payment status
+app.get('/admin/applications', requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        s.id, s.name, s.parent_name, s.mobile, s.email, s.registration_number,
+        s.final_submitted, s.application_status,
+        (SELECT status FROM payments WHERE student_id = s.id ORDER BY created_at DESC LIMIT 1) AS payment_status
+      FROM students s
+      WHERE s.registration_number IS NOT NULL
+      ORDER BY s.id DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error fetching applications.' });
+  }
+});
+
+// Get one application's full profile (reuses the same data shape as the student's own full-profile view)
+app.get('/admin/applications/:registration_number', requireAdmin, async (req, res) => {
+  const { registration_number } = req.params;
+  try {
+    const studentResult = await pool.query(
+      'SELECT * FROM students WHERE registration_number = $1',
+      [registration_number]
+    );
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Application not found' });
+    }
+    const student = studentResult.rows[0];
+    delete student.password;
+
+    const educationResult = await pool.query(
+      'SELECT * FROM education_details WHERE student_id = $1',
+      [student.id]
+    );
+    const documentsResult = await pool.query(
+      'SELECT doc_type, file_path FROM documents WHERE student_id = $1',
+      [student.id]
+    );
+
+    res.json({
+      student,
+      education: educationResult.rows[0] || null,
+      documents: documentsResult.rows
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Approve or reject an application
+app.post('/admin/applications/:registration_number/status', requireAdmin, async (req, res) => {
+  const { registration_number } = req.params;
+  const { status } = req.body;
+
+  if (!['pending', 'approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status value' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE students SET application_status = $1 WHERE registration_number = $2 RETURNING *`,
+      [status, registration_number]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Application not found' });
+    }
+    const student = result.rows[0];
+    delete student.password;
+    res.json({ message: `Application ${status}`, student });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error updating status.' });
   }
 });
 

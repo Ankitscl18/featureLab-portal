@@ -533,3 +533,50 @@ body {
 .locked-confirmation p {
   color: rgba(255, 255, 255, 0.6);
 }
+
+.admin-table-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th, .admin-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.admin-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.admin-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.admin-badge-pending {
+  background: rgba(234, 179, 8, 0.2);
+  color: #eab308;
+}
+
+.admin-badge-approved {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.admin-badge-rejected {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
