@@ -97,7 +97,7 @@ function App() {
     e.preventDefault();
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/students', {
+      const response = await fetch('https://featurelab-portal.onrender.com/students', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -115,7 +115,7 @@ function App() {
     e.preventDefault();
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/verify-otp', {
+      const response = await fetch('https://featurelab-portal.onrender.com/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: formData.mobile, otp })
@@ -135,7 +135,7 @@ function App() {
     e.preventDefault();
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/login', {
+      const response = await fetch('https://featurelab-portal.onrender.com/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
@@ -158,7 +158,7 @@ function App() {
       return;
     }
     try {
-      const response = await fetch('http://localhost:5000/change-password', {
+      const response = await fetch('https://featurelab-portal.onrender.com/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -181,7 +181,7 @@ function App() {
     e.preventDefault();
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/personal-details', {
+      const response = await fetch('https://featurelab-portal.onrender.com/personal-details', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ registration_number: student.registration_number, ...personalData })
@@ -200,7 +200,7 @@ function App() {
     e.preventDefault();
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/education-details', {
+      const response = await fetch('https://featurelab-portal.onrender.com/education-details', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ registration_number: student.registration_number, ...educationData })
@@ -216,7 +216,7 @@ function App() {
 
   const fetchUploadedDocs = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/documents/${student.registration_number}`);
+      const response = await fetch(`https://featurelab-portal.onrender.com/documents/${student.registration_number}`);
       const data = await response.json();
       const docsMap = {};
       data.forEach(doc => { docsMap[doc.doc_type] = doc.file_path; });
@@ -247,7 +247,7 @@ function App() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/upload-documents', {
+      const response = await fetch('https://featurelab-portal.onrender.com/upload-documents', {
         method: 'POST',
         body: formPayload
       });
@@ -269,7 +269,7 @@ function App() {
 
   const fetchFullProfile = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/full-profile/${student.registration_number}`);
+      const response = await fetch(`https://featurelab-portal.onrender.com/full-profile/${student.registration_number}`);
       const data = await response.json();
       if (response.ok) {
         setFullProfile(data);
@@ -284,7 +284,7 @@ function App() {
 
   const fetchPaymentStatus = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/payment-status/${student.registration_number}`);
+      const response = await fetch(`https://featurelab-portal.onrender.com/payment-status/${student.registration_number}`);
       const data = await response.json();
       if (response.ok) {
         setPaymentStatus(data);
@@ -297,7 +297,7 @@ function App() {
   const handlePayment = async () => {
     setError('');
     try {
-      const orderResponse = await fetch('http://localhost:5000/create-order', {
+      const orderResponse = await fetch('https://featurelab-portal.onrender.com/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ registration_number: student.registration_number })
@@ -318,7 +318,7 @@ function App() {
         order_id: orderData.order.id,
         handler: async (response) => {
           try {
-            const verifyResponse = await fetch('http://localhost:5000/verify-payment', {
+            const verifyResponse = await fetch('https://featurelab-portal.onrender.com/verify-payment', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -371,7 +371,7 @@ function App() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/final-submit', {
+      const response = await fetch('https://featurelab-portal.onrender.com/final-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ registration_number: student.registration_number, agreed })
@@ -395,7 +395,7 @@ function App() {
     if (!docEntry) return null;
     try {
       const cleanPath = docEntry.file_path.replace(/\\/g, '/');
-      const url = `http://localhost:5000/${cleanPath}`;
+      const url = `https://featurelab-portal.onrender.com/${cleanPath}`;
       const response = await fetch(url);
       if (!response.ok) return null;
       const blob = await response.blob();

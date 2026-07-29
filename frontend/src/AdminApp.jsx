@@ -15,7 +15,7 @@ function AdminApp() {
     e.preventDefault();
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/admin/login', {
+      const response = await fetch('https://featurelab-portal.onrender.com/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
@@ -31,7 +31,7 @@ function AdminApp() {
 
   const fetchApplications = async (authToken) => {
     try {
-      const response = await fetch('http://localhost:5000/admin/applications', {
+      const response = await fetch('https://featurelab-portal.onrender.com/admin/applications', {
         headers: { 'admin-token': authToken }
       });
       const data = await response.json();
@@ -53,7 +53,7 @@ function AdminApp() {
   const viewApplication = async (registration_number) => {
     setError('');
     try {
-      const response = await fetch(`http://localhost:5000/admin/applications/${registration_number}`, {
+      const response = await fetch(`https://featurelab-portal.onrender.com/admin/applications/${registration_number}`, {
         headers: { 'admin-token': token }
       });
       const data = await response.json();
@@ -68,7 +68,7 @@ function AdminApp() {
   const updateStatus = async (registration_number, status) => {
     setError('');
     try {
-      const response = await fetch(`http://localhost:5000/admin/applications/${registration_number}/status`, {
+      const response = await fetch(`https://featurelab-portal.onrender.com/admin/applications/${registration_number}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'admin-token': token },
         body: JSON.stringify({ status })
@@ -89,7 +89,7 @@ function AdminApp() {
 
   const logout = async () => {
     try {
-      await fetch('http://localhost:5000/admin/logout', {
+      await fetch('https://featurelab-portal.onrender.com/admin/logout', {
         method: 'POST',
         headers: { 'admin-token': token }
       });
@@ -232,7 +232,7 @@ function AdminApp() {
                       <div key={doc.doc_type}>
                         <span>{doc.doc_type}</span>
                         <strong>
-                          <a href={`http://localhost:5000/${doc.file_path.replace(/\\/g, '/')}`} target="_blank" rel="noreferrer">View File</a>
+                          <a href={`https://featurelab-portal.onrender.com/${doc.file_path.replace(/\\/g, '/')}`} target="_blank" rel="noreferrer">View File</a>
                         </strong>
                       </div>
                     ))}
