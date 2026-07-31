@@ -116,6 +116,12 @@ app.get('/students', async (req, res) => {
 });
 
 // Route to create a new student (Step 1: basic signup, before OTP verification)
+// FIXED: previously this always ran a raw INSERT, so any incomplete/abandoned
+// signup attempt (e.g. email send was slow or failed) would leave a row behind
+// with is_verified = false, permanently blocking that mobile number on retry
+// with a misleading "already registered" error. Now it checks for an existing
+// row first: verified rows are correctly rejected, but unverified/incomplete
+// rows are updated in place and get a fresh OTP instead of colliding.
 app.post('/students', async (req, res) => {
   const { name, parent_name, address, mobile, email } = req.body;
 
@@ -124,11 +130,35 @@ app.post('/students', async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `INSERT INTO students (name, parent_name, address, mobile, email)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [name, parent_name, address, mobile, email]
+    const existing = await pool.query(
+      'SELECT * FROM students WHERE mobile = $1',
+      [mobile]
     );
+
+    let student;
+
+    if (existing.rows.length > 0) {
+      const existingStudent = existing.rows[0];
+
+      if (existingStudent.is_verified) {
+        return res.status(400).json({ error: 'This mobile number is already registered.' });
+      }
+
+      // Incomplete signup from before — update details and resend OTP instead of inserting a new row
+      const updateResult = await pool.query(
+        `UPDATE students SET name = $1, parent_name = $2, address = $3, email = $4
+         WHERE mobile = $5 RETURNING *`,
+        [name, parent_name, address, email, mobile]
+      );
+      student = updateResult.rows[0];
+    } else {
+      const insertResult = await pool.query(
+        `INSERT INTO students (name, parent_name, address, mobile, email)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [name, parent_name, address, mobile, email]
+      );
+      student = insertResult.rows[0];
+    }
 
     const otp = Math.floor(1000 + Math.random() * 9000);
     const expiresAt = Date.now() + 5 * 60 * 1000;
@@ -137,7 +167,7 @@ app.post('/students', async (req, res) => {
 
     res.status(201).json({
       message: 'Signup successful. OTP sent for verification.',
-      student: result.rows[0]
+      student
     });
   } catch (err) {
     console.error(err.message);
