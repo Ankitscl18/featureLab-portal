@@ -4,6 +4,9 @@ dns.setDefaultResultOrder('ipv4first');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+}
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
