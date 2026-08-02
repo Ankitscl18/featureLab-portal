@@ -27,7 +27,10 @@ const APPLICATION_FEE_RUPEES = 200;
 
 // Email OTP — Nodemailer + Gmail App Password (no DLT registration needed, unlike SMS)
 const emailTransporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  family: 4, // force IPv4 — Render's free tier can't reach Gmail's IPv6 SMTP address
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_APP_PASSWORD
