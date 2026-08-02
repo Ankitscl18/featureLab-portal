@@ -9,7 +9,8 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const pool = require('./db');
 
 const app = express();
@@ -41,8 +42,8 @@ const emailTransporter = nodemailer.createTransport({
 });
 
 async function sendOtpEmail(email, otp) {
-  await emailTransporter.sendMail({
-    from: `"FutureLab" <${process.env.EMAIL_USER}>`,
+  const { error } = await resend.emails.send({
+    from: 'FutureLab <onboarding@resend.dev>',
     to: email,
     subject: 'Your FutureLab Verification Code',
     html: `
@@ -54,7 +55,12 @@ async function sendOtpEmail(email, otp) {
       </div>
     `
   });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to send OTP email');
+  }
 }
+
 
 // Temporary in-memory store for OTPs
 const otpStore = new Map();
