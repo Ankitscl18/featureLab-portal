@@ -4,9 +4,6 @@ dns.setDefaultResultOrder('ipv4first');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads');
-}
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
@@ -19,9 +16,16 @@ const pool = require('./db');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Absolute path to the uploads folder — avoids any ambiguity about the
+// process's working directory when running on Render vs locally.
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(uploadsDir));
 
 // Razorpay client — reads keys from backend/.env (never exposed to the frontend)
 const razorpay = new Razorpay({
@@ -31,19 +35,8 @@ const razorpay = new Razorpay({
 
 const APPLICATION_FEE_RUPEES = 200;
 
-// Email OTP — Nodemailer + Gmail App Password (no DLT registration needed, unlike SMS)
-const emailTransporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  family: 4, // force IPv4 — Render's free tier can't reach Gmail's IPv6 SMTP address
-  auth: {
-    user: process.env.EMAIL_USER,
-  
-    pass: process.env.EMAIL_APP_PASSWORD
-  }
-});
-
+// Email OTP — sent via Resend's HTTPS API (Render's free tier blocks outbound
+// SMTP ports, which broke the previous Nodemailer/Gmail setup)
 async function sendOtpEmail(email, otp) {
   const { error } = await resend.emails.send({
     from: 'FutureLab <onboarding@resend.dev>',
@@ -63,7 +56,6 @@ async function sendOtpEmail(email, otp) {
     throw new Error(error.message || 'Failed to send OTP email');
   }
 }
-
 
 // Temporary in-memory store for OTPs
 const otpStore = new Map();
@@ -91,7 +83,7 @@ const FILE_RULES = {
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     const uniqueName = Date.now() + '-' + file.fieldname + path.extname(file.originalname);
@@ -131,12 +123,6 @@ app.get('/students', async (req, res) => {
 });
 
 // Route to create a new student (Step 1: basic signup, before OTP verification)
-// FIXED: previously this always ran a raw INSERT, so any incomplete/abandoned
-// signup attempt (e.g. email send was slow or failed) would leave a row behind
-// with is_verified = false, permanently blocking that mobile number on retry
-// with a misleading "already registered" error. Now it checks for an existing
-// row first: verified rows are correctly rejected, but unverified/incomplete
-// rows are updated in place and get a fresh OTP instead of colliding.
 app.post('/students', async (req, res) => {
   const { name, parent_name, address, mobile, email } = req.body;
 
@@ -159,7 +145,6 @@ app.post('/students', async (req, res) => {
         return res.status(400).json({ error: 'This mobile number is already registered.' });
       }
 
-      // Incomplete signup from before — update details and resend OTP instead of inserting a new row
       const updateResult = await pool.query(
         `UPDATE students SET name = $1, parent_name = $2, address = $3, email = $4
          WHERE mobile = $5 RETURNING *`,
@@ -195,7 +180,6 @@ app.post('/students', async (req, res) => {
   }
 });
 
-// Generate and "send" OTP manually (optional, for re-requesting OTP)
 app.post('/send-otp', async (req, res) => {
   const { mobile } = req.body;
 
@@ -224,7 +208,6 @@ app.post('/send-otp', async (req, res) => {
   }
 });
 
-// Verify OTP and finalize registration
 app.post('/verify-otp', async (req, res) => {
   const { mobile, otp } = req.body;
 
@@ -276,7 +259,6 @@ app.post('/verify-otp', async (req, res) => {
   }
 });
 
-// Login with registration number + password
 app.post('/login', async (req, res) => {
   const { registration_number, password } = req.body;
 
@@ -305,7 +287,6 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// Change password (after login)
 app.post('/change-password', async (req, res) => {
   const { registration_number, oldPassword, newPassword } = req.body;
 
@@ -340,7 +321,6 @@ app.post('/change-password', async (req, res) => {
   }
 });
 
-// Update personal information (identity + address details)
 app.post('/personal-details', async (req, res) => {
   const {
     registration_number,
@@ -399,7 +379,6 @@ app.post('/personal-details', async (req, res) => {
   }
 });
 
-// Save or update education details
 app.post('/education-details', async (req, res) => {
   const {
     registration_number,
@@ -466,7 +445,6 @@ app.post('/education-details', async (req, res) => {
   }
 });
 
-// Upload documents (10th marksheet, 12th marksheet, aadhar, photo, signature)
 app.post('/upload-documents', (req, res, next) => {
   const uploadMiddleware = upload.fields([
     { name: 'marksheet_10th', maxCount: 1 },
@@ -547,7 +525,6 @@ app.post('/upload-documents', (req, res, next) => {
   }
 });
 
-// Get uploaded documents for a student
 app.get('/documents/:registration_number', async (req, res) => {
   const { registration_number } = req.params;
 
@@ -573,6 +550,7 @@ app.get('/documents/:registration_number', async (req, res) => {
     res.status(500).json({ error: 'Server error, please try again later.' });
   }
 });
+
 app.get('/full-profile/:registration_number', async (req, res) => {
   const { registration_number } = req.params;
 
@@ -641,7 +619,6 @@ app.post('/final-submit', async (req, res) => {
 
 // ===================== RAZORPAY PAYMENT ROUTES =====================
 
-// Create a Razorpay order for the ₹200 application fee
 app.post('/create-order', async (req, res) => {
   const { registration_number } = req.body;
 
@@ -658,7 +635,7 @@ app.post('/create-order', async (req, res) => {
     const studentId = studentResult.rows[0].id;
 
     const order = await razorpay.orders.create({
-      amount: APPLICATION_FEE_RUPEES * 100, // Razorpay expects paise
+      amount: APPLICATION_FEE_RUPEES * 100,
       currency: 'INR',
       receipt: registration_number
     });
@@ -676,7 +653,6 @@ app.post('/create-order', async (req, res) => {
   }
 });
 
-// Verify the payment signature Razorpay sends back after checkout succeeds
 app.post('/verify-payment', async (req, res) => {
   const { registration_number, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
@@ -703,7 +679,6 @@ app.post('/verify-payment', async (req, res) => {
   }
 });
 
-// Check whether a student has already paid
 app.get('/payment-status/:registration_number', async (req, res) => {
   const { registration_number } = req.params;
 
@@ -732,8 +707,6 @@ app.get('/payment-status/:registration_number', async (req, res) => {
   }
 });
 
-// ===================== ADMIN ROUTES =====================
-
 app.post('/admin/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -750,7 +723,6 @@ app.post('/admin/logout', requireAdmin, (req, res) => {
   res.json({ message: 'Logged out' });
 });
 
-// List all applications with payment status
 app.get('/admin/applications', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -769,7 +741,6 @@ app.get('/admin/applications', requireAdmin, async (req, res) => {
   }
 });
 
-// Get one application's full profile (reuses the same data shape as the student's own full-profile view)
 app.get('/admin/applications/:registration_number', requireAdmin, async (req, res) => {
   const { registration_number } = req.params;
   try {
@@ -803,7 +774,6 @@ app.get('/admin/applications/:registration_number', requireAdmin, async (req, re
   }
 });
 
-// Approve or reject an application
 app.post('/admin/applications/:registration_number/status', requireAdmin, async (req, res) => {
   const { registration_number } = req.params;
   const { status } = req.body;
