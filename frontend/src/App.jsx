@@ -56,6 +56,11 @@ function App() {
   const [student, setStudent] = useState(null);
   const [generatedPassword, setGeneratedPassword] = useState('');
 
+  // Guards against double-submitting a form (e.g. double-clicking Verify OTP)
+  // while a request is already in flight, which previously caused a stale
+  // "No OTP found" error to appear after a successful verification.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const isLocked = student?.final_submitted;
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -113,6 +118,8 @@ function App() {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // guard against double submit
+    setIsSubmitting(true);
     setError('');
     try {
       const response = await fetch('https://featurelab-portal.onrender.com/verify-otp', {
@@ -128,6 +135,8 @@ function App() {
     } catch (err) {
       console.error(err);
       setError('Could not connect to server');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -815,7 +824,9 @@ function App() {
             <form onSubmit={handleVerifyOtp}>
               <p className="otp-info">We've sent a 4-digit OTP to <strong>{formData.email}</strong></p>
               <div className="field"><label>Enter OTP</label><input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} required placeholder="Enter 4-digit OTP" maxLength="4" /></div>
-              <button type="submit" className="signup-btn">Verify OTP →</button>
+              <button type="submit" className="signup-btn" disabled={isSubmitting}>
+                {isSubmitting ? 'Verifying...' : 'Verify OTP →'}
+              </button>
             </form>
           )}
 
