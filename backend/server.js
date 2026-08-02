@@ -1,4 +1,6 @@
 require('dotenv').config();
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -33,6 +35,7 @@ const emailTransporter = nodemailer.createTransport({
   family: 4, // force IPv4 — Render's free tier can't reach Gmail's IPv6 SMTP address
   auth: {
     user: process.env.EMAIL_USER,
+  
     pass: process.env.EMAIL_APP_PASSWORD
   }
 });
