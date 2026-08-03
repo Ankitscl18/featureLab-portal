@@ -484,12 +484,14 @@ app.post('/upload-documents', (req, res, next) => {
       const rule = FILE_RULES[docType];
 
       if (file.size > rule.maxSize) {
-        fs.unlink(file.path, () => {});
-        sizeErrors.push(`${docType} must be under ${rule.maxSize / 1024}KB`);
-        continue;
-      }
+  fs.unlink(file.path, () => {});
+  sizeErrors.push(`${docType} must be under ${rule.maxSize / 1024}KB`);
+  continue;
+}
 
-      const filePath = file.path;
+const filePath = file.path;
+
+      const filePath = `uploads/${file.filename}`;
 
       const existing = await pool.query(
         'SELECT id FROM documents WHERE student_id = $1 AND doc_type = $2',
