@@ -484,12 +484,10 @@ app.post('/upload-documents', (req, res, next) => {
       const rule = FILE_RULES[docType];
 
       if (file.size > rule.maxSize) {
-  fs.unlink(file.path, () => {});
-  sizeErrors.push(`${docType} must be under ${rule.maxSize / 1024}KB`);
-  continue;
-}
-
-const filePath = file.path;
+        fs.unlink(file.path, () => {});
+        sizeErrors.push(`${docType} must be under ${rule.maxSize / 1024}KB`);
+        continue;
+      }
 
       const filePath = `uploads/${file.filename}`;
 
